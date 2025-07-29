@@ -18,14 +18,24 @@ func main() {
 		log.Fatalf("fail to connect to rabbit mq: %v", err)
 	}
 	defer conn.Close()
-
 	fmt.Println("Successfully connected to RabbitMQ.")
-	fmt.Println("  [*] Waiting for messages. To exit, press CTRL+C")
 
 	channel, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("fail to create channel: %v", err)
 	}
+
+	_, queue, err := pubsub.DeclareAndBind(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueDurable,
+	)
+	if err != nil {
+		log.Fatalf("fail to bind queue: %v", err)
+	}
+	fmt.Printf("queue %v declared and bound\n", queue.Name)
 
 	gamelogic.PrintServerHelp()
 
