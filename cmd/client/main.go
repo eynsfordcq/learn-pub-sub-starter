@@ -58,7 +58,7 @@ func main() {
 		armyMovesQueueName,
 		armyMovesBindingKey,
 		pubsub.SimpleQueueTransient,
-		handlerMove(gameState),
+		handlerMove(gameState, ch),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to army moves: %v", err)
@@ -67,6 +67,22 @@ func main() {
 		armyMovesBindingKey,
 		armyMovesQueueName,
 	)
+
+	// subscribe to war
+	warQueueName := routing.WarRecognitionsPrefix
+	warBindingKey := fmt.Sprintf("%s.%s", routing.WarRecognitionsPrefix, username)
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		warQueueName,
+		warBindingKey,
+		pubsub.SimpleQueueDurable,
+		handlerWar(gameState),
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to wars: %v", err)
+	}
+	fmt.Println("subscribed to wars")
 
 	for {
 		words := gamelogic.GetInput()
