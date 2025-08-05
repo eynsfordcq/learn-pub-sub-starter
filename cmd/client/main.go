@@ -77,7 +77,7 @@ func main() {
 		warQueueName,
 		warBindingKey,
 		pubsub.SimpleQueueDurable,
-		handlerWar(gameState),
+		handlerWar(gameState, ch),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to wars: %v", err)
