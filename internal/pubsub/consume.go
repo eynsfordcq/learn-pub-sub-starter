@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"log"
 
@@ -125,3 +127,77 @@ func SubscribeJSON[T any](
 
 	return nil
 }
+
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) AckType,
+) error {
+	ch, queue, err := DeclareAndBind(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+	)
+	if err != nil {
+		return err
+	}
+
+	msgs, err := ch.Consume(
+		queue.Name,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer ch.Close()
+		for msg := range msgs {
+			var payload T
+			buf := bytes.NewBuffer(msg.Body)
+			decoder := gob.NewDecoder(buf)
+			if err := decoder.Decode(&payload); err != nil {
+				log.Printf("could not decode message: %v", err)
+				continue
+			}
+			ackType := handler(payload)
+			switch ackType {
+			case Ack:
+				msg.Ack(false)
+				log.Println("message ack-ed")
+			case NackRequeue:
+				msg.Nack(false, true)
+				log.Println("msg nack-requeued")
+			case NackDiscard:
+				msg.Nack(false, false)
+				log.Println("message nack-discarded")
+			default:
+				log.Println("invalid type")
+			}
+		}
+	}()
+
+	return nil
+}
+
+// func decode(data []byte) (GameLog, error) {
+// 	var gl GameLog
+// 	buf := bytes.NewBuffer(data)
+// 	decoder := gob.NewDecoder(buf)
+
+// 	if err := decoder.Decode(&gl); err != nil {
+// 		return GameLog{}, err
+// 	}
+
+// 	return gl, nil
+// }
